@@ -3,3 +3,7 @@
 /logs/*
 /instance/*
 /static/uploads/*
+*.pyc
+blueprints/__pycache__
+migrations/__pycache__
+services/__pycache__
