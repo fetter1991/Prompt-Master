@@ -7,20 +7,20 @@
     <div class="d-none d-md-block flex-shrink-0" style="width: 240px; z-index: 100;">
         <div class="sidebar-sticky custom-scrollbar" style="max-height: calc(100vh - 80px); overflow-y: auto;">
             <div class="px-3 mb-4 mt-2">
-                <h5 class="fw-bold m-0" style="font-family: serif; font-style: italic; letter-spacing: 1px;">Prompt<br>Manager</h5>
+                <h5 class="fw-bold m-0" style="font-family: serif; font-style: italic; letter-spacing: 1px;">Prompt Manager</h5>
             </div>
 
-            <div class="nav-category">Library</div>
-            <a href="{{ url_for(request.endpoint, model_type=active_model_type, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if not active_tag else '' }}">
+            <!-- <div class="nav-category">Library</div> -->
+            <!-- <a href="{{ url_for(request.endpoint, model_type=active_model_type, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if not active_tag else '' }}">
                 <i class="bi bi-grid-fill me-3 small"></i>All Photos
-            </a>
+            </a> -->
 
             <div class="nav-category mt-4 d-flex justify-content-between align-items-center">
-                <span>Models</span>
+                <span>底模类型</span>
                 <span class="badge bg-secondary bg-opacity-25 rounded-pill small" style="font-size: 0.65rem;">{{ model_types|length }}</span>
             </div>
             <a href="{{ url_for(request.endpoint, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if not active_model_type else '' }}">
-                <i class="bi bi-cpu me-3 small opacity-50"></i>底层模型
+                <i class="bi bi-cpu me-3 small opacity-50"></i>全部模型
             </a>
             {% for model_type in model_types %}
             <a href="{{ url_for(request.endpoint, model_type=model_type, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if active_model_type == model_type else '' }}">
@@ -28,10 +28,12 @@
             </a>
             {% endfor %}
 
-            <div class="nav-category mt-4 d-flex justify-content-between align-items-center">
-                <span>Tags</span>
-                <span class="badge bg-secondary bg-opacity-25 rounded-pill small" style="font-size: 0.65rem;">{{ all_tags|length }}</span>
-            </div>
+            <a href="{{ url_for(request.endpoint, model_type=active_model_type, sort=current_sort) }}"
+               class="nav-item-apple {{ 'active' if not active_tag else '' }} mt-4"
+               title="显示当前模型下所有图片">
+                <i class="bi bi-grid-fill me-3 small"></i>Tags
+                <span class="badge bg-secondary bg-opacity-25 rounded-pill small ms-auto" style="font-size: 0.65rem;">{{ all_tags|length }}</span>
+            </a>
 
             {% for tag in all_tags %}
             <a href="{{ url_for(request.endpoint, model_type=active_model_type, tag=tag.name, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if active_tag == tag.name else '' }}">
