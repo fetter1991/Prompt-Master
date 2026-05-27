@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% block title %}提示词管家{% endblock %}
+
+{% block content %}
+<div class="d-flex w-100" style="min-height: 100vh;">
+
+    <div class="d-none d-md-block flex-shrink-0" style="width: 240px; z-index: 100;">
+        <div class="sidebar-sticky custom-scrollbar" style="max-height: calc(100vh - 80px); overflow-y: auto;">
+            <div class="px-3 mb-4 mt-2">
+                <h5 class="fw-bold m-0" style="font-family: serif; font-style: italic; letter-spacing: 1px;">Prompt<br>Manager</h5>
+            </div>
+
+            <div class="nav-category">Library</div>
+            <a href="{{ url_for(request.endpoint, model_type=active_model_type, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if not active_tag else '' }}">
+                <i class="bi bi-grid-fill me-3 small"></i>All Photos
+            </a>
+
+            <div class="nav-category mt-4 d-flex justify-content-between align-items-center">
+                <span>Models</span>
+                <span class="badge bg-secondary bg-opacity-25 rounded-pill small" style="font-size: 0.65rem;">{{ model_types|length }}</span>
+            </div>
+            <a href="{{ url_for(request.endpoint, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if not active_model_type else '' }}">
+                <i class="bi bi-cpu me-3 small opacity-50"></i>底层模型
+            </a>
+            {% for model_type in model_types %}
+            <a href="{{ url_for(request.endpoint, model_type=model_type, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if active_model_type == model_type else '' }}">
+                <i class="bi bi-cpu me-3 small opacity-50"></i>{{ model_type }}
+            </a>
+            {% endfor %}
+
+            <div class="nav-category mt-4 d-flex justify-content-between align-items-center">
+                <span>Tags</span>
+                <span class="badge bg-secondary bg-opacity-25 rounded-pill small" style="font-size: 0.65rem;">{{ all_tags|length }}</span>
+            </div>
+
+            {% for tag in all_tags %}
+            <a href="{{ url_for(request.endpoint, model_type=active_model_type, tag=tag.name, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if active_tag == tag.name else '' }}">
+                <i class="bi bi-hash me-3 small opacity-50"></i>{{ tag.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="flex-grow-1 transition-bg" style="background: var(--bg-color); overflow-x: hidden;">
+
+        <div class="px-4 px-lg-5 pt-5 pb-4 d-flex flex-wrap justify-content-between align-items-end">
+            <div class="mb-3 mb-md-0">
+                <h1 class="fw-bold mb-1 art-title" style="font-size: 2.5rem; letter-spacing: -1px;">
+                    {{ active_tag or active_model_type or ('Templates' if request.endpoint == 'public.templates_index' else 'Collection') }}
+                </h1>
+                <p class="m-0 small" style="color: var(--text-secondary);">
+                    {{ pagination.total }} pieces of art
+                </p>
+            </div>
+
+            <div class="d-block w-100 w-md-auto mt-2 mt-md-0" style="max-width: 400px;">
+                <form action="{{ url_for(request.endpoint) }}" method="get">
+                    <div class="position-relative">
+                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                        <input type="text" name="q" value="{{ active_search or '' }}"
+                               class="form-control border-0 shadow-sm rounded-pill py-2"
+                               placeholder="Search..."
+                               style="width: 100%; padding-left: 2.5rem; background: var(--sidebar-bg); color: var(--text-primary);">
+                        <input type="hidden" name="sort" value="{{ current_sort }}">
+                        {% if active_model_type %}
+                        <input type="hidden" name="model_type" value="{{ active_model_type }}">
+                        {% endif %}
+                        {% if active_tag %}
+                        <input type="hidden" name="tag" value="{{ active_tag }}">
+                        {% endif %}
+                    </div>
+                </form>
+
+                <div class="w-100 d-flex justify-content-end mt-3 px-1">
+                    <nav class="segmented-control shadow-sm">
+                        <a href="{{ url_for(request.endpoint, sort='date', model_type=active_model_type, tag=active_tag, q=active_search) }}"
+                           class="nav-link {{ 'active' if current_sort == 'date' else '' }}">
+                           <i class="bi bi-clock-history"></i> <span>最新</span>
+                        </a>
+                        <a href="{{ url_for(request.endpoint, sort='hot', model_type=active_model_type, tag=active_tag, q=active_search) }}"
+                           class="nav-link {{ 'active' if current_sort == 'hot' else '' }}">
+                           <i class="bi bi-fire"></i> <span>热度</span>
+                        </a>
+                        <a href="{{ url_for(request.endpoint, sort='random', model_type=active_model_type, tag=active_tag, q=active_search) }}"
+                           class="nav-link {{ 'active' if current_sort == 'random' else '' }}">
+                           <i class="bi bi-shuffle"></i> <span>随机</span>
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-2 px-md-4 px-lg-5 pb-5">
+            <div class="gallery-masonry">
+                {% for img in images %}
+                <div class="gallery-item group">
+                    <div class="art-frame cursor-zoom" onclick="showDetail(this)">
+                        {% set file_path_lower = (img.file_path or '') | lower %}
+                        {% set is_video = file_path_lower.endswith('.mp4') or file_path_lower.endswith('.webm') or file_path_lower.endswith('.ogg') or file_path_lower.endswith('.mov') or file_path_lower.endswith('.m4v') %}
+
+                        <script type="application/json" class="img-data">
+                            {{ img.to_dict() | tojson | safe }}
+                        </script>
+
+                        {% if is_video %}
+                            <video src="{{ img.file_path }}"
+                                   {% if img.thumbnail_path %}poster="{{ img.thumbnail_path }}"{% endif %}
+                                   muted autoplay loop playsinline preload="metadata"
+                                   style="display:block;width:100%;height:auto;"></video>
+                        {% else %}
+                            {% if config.USE_THUMBNAIL_IN_PREVIEW %}
+                                <img src="{{ img.thumbnail_path or img.file_path }}" alt="{{ img.title }}" loading="lazy" onload="this.classList.add('reveal')">
+                            {% else %}
+                                <img src="{{ img.file_path }}" alt="{{ img.title }}" loading="lazy" onload="this.classList.add('reveal')">
+                            {% endif %}
+                        {% endif %}
+
+                        <span class="position-absolute top-0 end-0 m-2 badge bg-black bg-opacity-25 backdrop-blur rounded-1 fw-normal"
+                              style="font-size: 0.6rem; padding: 3px 6px;">
+                            {{ 'VID' if is_video else ('T2I' if img.type == 'txt2img' else 'I2I') }}
+                        </span>
+                    </div>
+
+                    <div class="art-info">
+                        <div class="art-title text-truncate" style="color: var(--text-primary);">{{ img.title }}</div>
+                        <div class="art-meta d-flex justify-content-between align-items-center mt-1">
+                            <div class="d-flex align-items-center text-truncate" style="max-width: 60%;">
+                                <span class="me-2">{{ img.author or '' }}</span>
+                                {% if current_sort == 'hot' and img.heat_score > 0 %}
+                                <span class="d-flex align-items-center small text-secondary opacity-75 ms-1" style="font-size: 0.7rem;">
+                                    <i class="bi bi-fire me-1"></i>{{ img.heat_score }}
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-flex flex-wrap justify-content-end gap-2" style="max-width: 50%;">
+                                {% for tag in img.tags[:3] %}
+                                <span class="mini-tag">{{ tag.name }}</span>
+                                {% endfor %}
+                                {% if img.tags|length > 3 %}
+                                <span class="mini-tag px-1 text-muted" style="background:transparent; border:none;">+{{ img.tags|length - 3 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5 w-100" style="color: var(--text-secondary); break-inside: avoid;">
+                    <i class="bi bi-image fs-1 opacity-25"></i>
+                    <p class="mt-3">No art pieces found.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if pagination.pages > 1 %}
+        <div class="pagination-container">
+            <nav class="pagination-modern">
+                <a class="page-link-item {% if not pagination.has_prev %}disabled{% endif %}"
+                   href="{{ url_for(request.endpoint, page=pagination.prev_num, model_type=active_model_type, tag=active_tag, q=active_search, sort=current_sort) }}"
+                   title="Previous">
+                    <i class="bi bi-chevron-left small"></i>
+                </a>
+
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        {% if page_num != pagination.page %}
+                            <a class="page-link-item"
+                               href="{{ url_for(request.endpoint, page=page_num, model_type=active_model_type, tag=active_tag, q=active_search, sort=current_sort) }}">
+                                {{ page_num }}
+                            </a>
+                        {% else %}
+                            <span class="page-link-item active">{{ page_num }}</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="page-ellipsis"><i class="bi bi-three-dots"></i></span>
+                    {% endif %}
+                {% endfor %}
+
+                <a class="page-link-item {% if not pagination.has_next %}disabled{% endif %}"
+                   href="{{ url_for(request.endpoint, page=pagination.next_num, model_type=active_model_type, tag=active_tag, q=active_search, sort=current_sort) }}"
+                   title="Next">
+                    <i class="bi bi-chevron-right small"></i>
+                </a>
+            </nav>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<div class="offcanvas offcanvas-start" tabindex="-1" id="mobileTagSidebar" style="background: var(--sidebar-bg);">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title fw-bold">标签筛选</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body custom-scrollbar">
+        <div class="nav-category mt-0">Library</div>
+        <a href="{{ url_for(request.endpoint, model_type=active_model_type, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if not active_tag else '' }}">
+            <i class="bi bi-grid-fill me-3 small"></i>全部作品
+        </a>
+        <div class="nav-category mt-4">Models</div>
+        <a href="{{ url_for(request.endpoint, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if not active_model_type else '' }}">
+            <i class="bi bi-cpu me-3 small opacity-50"></i>全部模型
+        </a>
+        {% for model_type in model_types %}
+        <a href="{{ url_for(request.endpoint, model_type=model_type, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if active_model_type == model_type else '' }}">
+            <i class="bi bi-cpu me-3 small opacity-50"></i>{{ model_type }}
+        </a>
+        {% endfor %}
+        <div class="nav-category mt-4">Tags</div>
+        {% for tag in all_tags %}
+        <a href="{{ url_for(request.endpoint, model_type=active_model_type, tag=tag.name, q=active_search, sort=current_sort) }}" class="nav-item-apple {{ 'active' if active_tag == tag.name else '' }}">
+            <i class="bi bi-hash me-3 small opacity-50"></i>{{ tag.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius: 1rem;">
+            <div class="modal-body p-0">
+                <div class="row g-0 modal-fixed-height" style="height: 85vh; min-height: 500px;">
+
+                    <div class="col-lg-8 d-flex align-items-center justify-content-center position-relative h-100" style="background: black;">
+                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-4 p-2 bg-dark bg-opacity-50 rounded-circle" data-bs-dismiss="modal" style="z-index: 10;"></button>
+                        <img id="modalImg" src="" class="img-fluid" style="max-height: 95%; max-width: 95%; object-fit: contain;">
+                        <video id="modalVideo" class="d-none" controls playsinline style="max-height: 95%; max-width: 95%; object-fit: contain;"></video>
+                    </div>
+
+                    <div class="col-lg-4 d-flex flex-column border-start border-secondary border-opacity-10 h-100" style="background-color: var(--modal-bg); overflow: hidden;">
+                        <div class="p-4 custom-scrollbar flex-grow-1" style="overflow-y: auto;">
+
+                            <h4 id="modalTitle" class="fw-bold mb-1" style="color: var(--text-primary);"></h4>
+                            <div class="mb-4 small" style="color: var(--text-secondary);" id="modalAuthor"></div>
+
+                            <div id="modalTags" class="mb-4 d-flex flex-wrap gap-2"></div>
+
+                            <div id="modalDescSection" class="mb-4 d-none">
+                                <label class="text-uppercase small fw-bold mb-2 text-secondary">Info & Usage</label>
+                                <div class="p-3 rounded-3" style="background-color: var(--btn-bg); font-size: 0.9rem; color: var(--text-primary);">
+                                    <p id="modalDesc" class="mb-0 text-break" style="white-space: pre-wrap;"></p>
+                                </div>
+                            </div>
+
+                            <div id="modalRefsSection" class="mb-4 d-none">
+                                <label class="text-uppercase small fw-bold mb-2 text-secondary">参考图</label>
+                                <div id="modalRefs" class="d-flex gap-2 overflow-auto pb-2 custom-scrollbar"></div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-end mb-2 px-1">
+                                    <label class="text-uppercase small fw-bold text-secondary mb-0">Prompt</label>
+
+                                    <button class="btn btn-sm text-secondary p-0 fw-bold d-flex align-items-center transition-colors"
+                                            onclick="copyModalPrompt()"
+                                            id="btnCopyPrompt"
+                                            style="font-size: 0.8rem; border: none; background: transparent; letter-spacing: 0.3px;">
+                                        <i class="bi bi-clipboard me-1"></i> <span>Copy</span>
+                                    </button>
+                                </div>
+
+                                <div class="p-3 rounded-3 position-relative prompt-box-apple" style="background-color: var(--btn-bg);">
+                                    <code id="modalPrompt" class="d-block text-break custom-scrollbar"
+                                          style="font-size: 0.9rem; color: var(--text-primary); max-height: 180px; overflow-y: auto; white-space: pre-wrap; line-height: 1.6;"></code>
+                                </div>
+
+                                <div id="modalVarsSection" class="mt-4 d-none animate-up" style="animation-delay: 0.1s;">
+                                    <label class="text-uppercase small fw-bold text-secondary mb-2 px-1">变量替换</label>
+                                    <div id="modalVarsContainer" class="d-flex flex-column gap-2">
+                                        </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="admin-actions" class="d-none mt-auto flex-shrink-0 border-top border-secondary border-opacity-10" style="background: rgba(128,128,128,0.03);">
+                            <div class="d-flex justify-content-center align-items-center gap-3 p-3">
+                                <a id="btn-edit-art" href="#" class="btn-circle-icon bg-white shadow-sm text-secondary" title="编辑作品">
+                                    <i class="bi bi-pencil-fill"></i>
+                                </a>
+                                <form id="form-delete-art" method="POST" action="" onsubmit="return confirm('确定永久删除该作品吗？');" class="m-0">
+                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                     <button class="btn-circle-icon bg-white shadow-sm text-danger hover-danger" title="永久删除">
+                                        <i class="bi bi-trash-fill"></i>
+                                     </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/gallery.js') }}"></script>
+{% endblock %}

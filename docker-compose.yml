@@ -1,0 +1,51 @@
+version: '3.8'
+
+# ============================================
+# Prompt Manager - Docker Compose
+#
+# 零配置启动：直接运行 docker compose up -d
+# 默认账号：admin / 123456
+# 启动后请在后台修改密码
+# ============================================
+
+services:
+  web:
+    image: vioaki/prompt-manager:latest
+    container_name: prompt-manager
+
+    # 可选：如需自定义配置，取消注释并创建 .env 文件
+    # env_file: .env
+
+    environment:
+      GUNICORN_WORKERS: "2"
+      GUNICORN_THREADS: "4"
+      GUNICORN_BIND: 0.0.0.0:5000
+      GUNICORN_LOG_LEVEL: info
+      TZ: Asia/Shanghai
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      # 数据持久化 (必须挂载)
+      - ./data:/app/instance        # 数据库 + SECRET_KEY
+      - ./uploads:/app/static/uploads  # 上传的图片
+      # 可选
+      - ./logs:/app/logs
+
+    restart: unless-stopped
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    stop_grace_period: 20s
