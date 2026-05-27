@@ -5,7 +5,7 @@ import time
 from werkzeug.utils import secure_filename
 from flask import current_app
 from extensions import db
-from models import Image, Tag, ReferenceImage
+from models import Image, Tag, ReferenceImage, MainImage
 
 
 class DataService:
@@ -40,24 +40,52 @@ class DataService:
 
                         yield f"   📥 [导入] {item['title']}... "
 
-                        # 1. 提取主图
-                        zip_img = item.get('zip_image_path')
-                        if not zip_img or zip_img not in zf.namelist():
-                            raise FileNotFoundError("主图缺失")
+                        # 1. 提取主图，兼容旧版单主图与新版多主图
+                        raw_main_images = item.get('main_images') or []
+                        if raw_main_images:
+                            main_items = raw_main_images
+                        else:
+                            main_items = [{
+                                'file_path': item.get('zip_image_path'),
+                                'thumbnail_path': item.get('zip_thumb_path'),
+                                'position': 0
+                            }]
 
-                        safe_name = secure_filename(os.path.basename(zip_img))
-                        with zf.open(zip_img) as src, open(os.path.join(upload_root, safe_name), "wb") as dst:
-                            dst.write(src.read())
+                        extracted_main_images = []
+                        web_folder = current_app.config['UPLOAD_FOLDER']
 
-                        # 2. 提取缩略图 (可选)
-                        safe_thumb = None
-                        if item.get('zip_thumb_path') and item['zip_thumb_path'] in zf.namelist():
-                            safe_thumb = secure_filename(os.path.basename(item['zip_thumb_path']))
-                            with zf.open(item['zip_thumb_path']) as src, open(os.path.join(upload_root, safe_thumb),
-                                                                              "wb") as dst:
+                        for index, main_item in enumerate(main_items):
+                            zip_img = main_item.get('zip_image_path') or main_item.get('file_path')
+                            if zip_img and zip_img not in zf.namelist():
+                                zip_img = f"images/{os.path.basename(zip_img)}"
+                            if not zip_img or zip_img not in zf.namelist():
+                                if index == 0:
+                                    raise FileNotFoundError("主图缺失")
+                                continue
+
+                            safe_name = secure_filename(os.path.basename(zip_img))
+                            with zf.open(zip_img) as src, open(os.path.join(upload_root, safe_name), "wb") as dst:
                                 dst.write(src.read())
 
-                        web_folder = current_app.config['UPLOAD_FOLDER']
+                            safe_thumb = None
+                            zip_thumb = main_item.get('zip_thumb_path') or main_item.get('thumbnail_path')
+                            if zip_thumb and zip_thumb not in zf.namelist():
+                                zip_thumb = f"images/{os.path.basename(zip_thumb)}"
+                            if zip_thumb and zip_thumb in zf.namelist():
+                                safe_thumb = secure_filename(os.path.basename(zip_thumb))
+                                with zf.open(zip_thumb) as src, open(os.path.join(upload_root, safe_thumb), "wb") as dst:
+                                    dst.write(src.read())
+
+                            extracted_main_images.append({
+                                'file_path': f"/{web_folder}/{safe_name}",
+                                'thumbnail_path': f"/{web_folder}/{safe_thumb}" if safe_thumb else None,
+                                'position': main_item.get('position', index)
+                            })
+
+                        if not extracted_main_images:
+                            raise FileNotFoundError("主图缺失")
+
+                        first_main_image = sorted(extracted_main_images, key=lambda x: x.get('position', 0))[0]
                         img = Image(
                             title=item['title'],
                             author=item.get('author', ''),
@@ -66,11 +94,18 @@ class DataService:
                             type=item.get('type', 'txt2img'),
                             model_type=item.get('model_type', ''),
                             category=item.get('category', 'gallery'),  # 读取分类
-                            file_path=f"/{web_folder}/{safe_name}",
-                            thumbnail_path=f"/{web_folder}/{safe_thumb}" if safe_thumb else None,
+                            file_path=first_main_image['file_path'],
+                            thumbnail_path=first_main_image.get('thumbnail_path'),
                             status='pending',  # 导入后默认为待审核，需管理员确认
                             heat_score=item.get('heat_score', 0)
                         )
+
+                        for main_item in extracted_main_images:
+                            img.main_images.append(MainImage(
+                                file_path=main_item['file_path'],
+                                thumbnail_path=main_item.get('thumbnail_path'),
+                                position=main_item.get('position', 0)
+                            ))
                         # ---------------------------------
 
                         # 3. 处理标签

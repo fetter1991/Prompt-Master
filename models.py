@@ -104,6 +104,8 @@ class Image(db.Model):
 
     # 关联
     tags = db.relationship('Tag', secondary=image_tags, backref='images')
+    main_images = db.relationship('MainImage', backref='image', cascade="all, delete-orphan",
+                                  order_by="MainImage.position")
     refs = db.relationship('ReferenceImage', backref='image', cascade="all, delete-orphan",
                            order_by="ReferenceImage.position")
 
@@ -118,6 +120,25 @@ class Image(db.Model):
                 return path
             # 本地路径，拼接当前请求的域名
             return request.url_root.rstrip('/') + path
+
+        # 构造主作品图片列表；旧数据没有 main_images 时使用 file_path 兜底
+        main_images_data = []
+        main_images = self.main_images or []
+        if main_images:
+            for item in main_images:
+                main_images_data.append({
+                    "id": item.id,
+                    "file_path": _get_full_url(item.file_path),
+                    "thumbnail_path": _get_full_url(item.thumbnail_path),
+                    "position": item.position
+                })
+        else:
+            main_images_data.append({
+                "id": None,
+                "file_path": _get_full_url(self.file_path),
+                "thumbnail_path": _get_full_url(self.thumbnail_path),
+                "position": 0
+            })
 
         # 构造参考图列表
         refs_data = []
@@ -148,6 +169,7 @@ class Image(db.Model):
             # 主图和缩略图都处理成绝对路径
             "file_path": _get_full_url(self.file_path),
             "thumbnail_path": _get_full_url(self.thumbnail_path),
+            "main_images": main_images_data,
 
             "tags": [t.name for t in self.tags],
 
@@ -157,6 +179,15 @@ class Image(db.Model):
             "heat_score": self.heat_score,
             "created_at": self.created_at.isoformat()
         }
+
+
+class MainImage(db.Model):
+    """主作品图片模型，支持一个作品关联多张主图"""
+    id = db.Column(db.Integer, primary_key=True)
+    image_id = db.Column(db.Integer, db.ForeignKey('image.id'), nullable=False, index=True)
+    file_path = db.Column(db.String(255), nullable=False)
+    thumbnail_path = db.Column(db.String(255))
+    position = db.Column(db.Integer, default=0)
 
 
 class ReferenceImage(db.Model):

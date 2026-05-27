@@ -1,7 +1,7 @@
 import json
 from flask import current_app
 from extensions import db
-from models import Image, Tag, ReferenceImage
+from models import Image, Tag, ReferenceImage, MainImage
 from utils import process_image, remove_physical_file
 
 
@@ -10,9 +10,18 @@ class ImageService:
     def create_image(file, data, ref_files=None):
         """创建新作品记录"""
         upload_folder = current_app.config['UPLOAD_FOLDER']
-        web_path, thumb_path = process_image(file, upload_folder)
+        main_files = ImageService._normalize_files(file)
+        if not main_files:
+            raise ValueError("缺少主图文件")
+
+        processed_main_files = []
 
         try:
+            for main_file in main_files:
+                web_path, thumb_path = process_image(main_file, upload_folder)
+                processed_main_files.append((web_path, thumb_path))
+
+            first_web_path, first_thumb_path = processed_main_files[0]
             image = Image(
                 title=data.get('title'),
                 author=data.get('author', '').strip(),
@@ -21,8 +30,8 @@ class ImageService:
                 type=data.get('type'),
                 model_type=data.get('model_type', '').strip(),
                 category=data.get('category', 'gallery'),
-                file_path=web_path,
-                thumbnail_path=thumb_path,
+                file_path=first_web_path,
+                thumbnail_path=first_thumb_path,
                 status=data.get('status', 'pending')
             )
 
@@ -31,6 +40,14 @@ class ImageService:
 
             db.session.add(image)
             db.session.flush()
+
+            for index, (main_path, main_thumb_path) in enumerate(processed_main_files):
+                db.session.add(MainImage(
+                    image_id=image.id,
+                    file_path=main_path,
+                    thumbnail_path=main_thumb_path,
+                    position=index
+                ))
 
             if image.type == 'img2img':
                 # 处理参考图布局 (create时也可能包含占位符)
@@ -45,8 +62,9 @@ class ImageService:
 
         except Exception as e:
             db.session.rollback()
-            remove_physical_file(web_path)
-            remove_physical_file(thumb_path)
+            for main_path, main_thumb_path in processed_main_files:
+                remove_physical_file(main_path)
+                remove_physical_file(main_thumb_path)
             raise e
 
     @staticmethod
@@ -68,15 +86,35 @@ class ImageService:
 
         upload_folder = current_app.config['UPLOAD_FOLDER']
 
-        # 替换主图
-        if new_main_file and new_main_file.filename:
-            old_files = [image.file_path, image.thumbnail_path]
-            web_path, thumb_path = process_image(new_main_file, upload_folder)
-            image.file_path = web_path
-            image.thumbnail_path = thumb_path
+        # 替换主图，可一次替换为多张主作品图片
+        new_main_files = ImageService._normalize_files(new_main_file)
+        if new_main_files:
+            old_files = {image.file_path, image.thumbnail_path}
+            for main_image in image.main_images:
+                old_files.add(main_image.file_path)
+                old_files.add(main_image.thumbnail_path)
+
+            processed_main_files = []
+            for main_file in new_main_files:
+                web_path, thumb_path = process_image(main_file, upload_folder)
+                processed_main_files.append((web_path, thumb_path))
+
+            image.file_path = processed_main_files[0][0]
+            image.thumbnail_path = processed_main_files[0][1]
+            image.main_images = []
+            db.session.flush()
+
+            for index, (main_path, main_thumb_path) in enumerate(processed_main_files):
+                db.session.add(MainImage(
+                    image_id=image.id,
+                    file_path=main_path,
+                    thumbnail_path=main_thumb_path,
+                    position=index
+                ))
 
             for p in old_files:
-                remove_physical_file(p)
+                if p not in {path for pair in processed_main_files for path in pair}:
+                    remove_physical_file(p)
 
         # 更新标签
         if 'tags' in data:
@@ -113,6 +151,8 @@ class ImageService:
         if not image: return False
 
         files_to_remove = [image.file_path, image.thumbnail_path]
+        for main_image in image.main_images:
+            files_to_remove.extend([main_image.file_path, main_image.thumbnail_path])
         for r in image.refs:
             if r.file_path:
                 files_to_remove.append(r.file_path)
@@ -127,6 +167,14 @@ class ImageService:
 
         ImageService._clean_orphaned_tags(tags)
         return True
+
+    @staticmethod
+    def _normalize_files(files):
+        if not files:
+            return []
+        if isinstance(files, (list, tuple)):
+            return [f for f in files if f and getattr(f, 'filename', '')]
+        return [files] if getattr(files, 'filename', '') else []
 
     @staticmethod
     def _apply_tags(image, tags_str):

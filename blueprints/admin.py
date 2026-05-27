@@ -158,7 +158,7 @@ def edit_image(img_id):
             ImageService.update_image(
                 image_id=img.id,
                 data=request.form,
-                new_main_file=request.files.get('new_image'),
+                new_main_file=request.files.getlist('new_image'),
                 new_ref_files=request.files.getlist('add_refs'),
                 deleted_ref_ids=deleted_ids_list
             )
@@ -203,28 +203,48 @@ def export_zip():
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         json_data = []
         upload_root = os.path.join(current_app.root_path, current_app.config['UPLOAD_FOLDER'])
+        written_files = set()
+
+        def write_upload_file(path):
+            if not path:
+                return None
+            filename = os.path.basename(path)
+            if not filename:
+                return None
+            abs_path = os.path.join(upload_root, filename)
+            zip_path = f"images/{filename}"
+            if os.path.exists(abs_path) and zip_path not in written_files:
+                zf.write(abs_path, zip_path)
+                written_files.add(zip_path)
+            return zip_path
 
         for img in images:
             # 准备元数据
             item_data = img.to_dict()
 
-            img_filename = os.path.basename(img.file_path)
-            item_data['zip_image_path'] = f"images/{img_filename}"
+            # 写入主图，兼容多主作品图片
+            main_images = img.main_images or []
+            if not main_images:
+                main_images = [type('MainImageFallback', (), {
+                    'file_path': img.file_path,
+                    'thumbnail_path': img.thumbnail_path,
+                    'position': 0
+                })()]
 
-            if img.thumbnail_path:
-                thumb_name = os.path.basename(img.thumbnail_path)
-                item_data['zip_thumb_path'] = f"images/{thumb_name}"
+            item_data['main_images'] = []
+            for main_image in main_images:
+                zip_image_path = write_upload_file(main_image.file_path)
+                zip_thumb_path = write_upload_file(main_image.thumbnail_path)
+                if zip_image_path:
+                    item_data['main_images'].append({
+                        'file_path': zip_image_path,
+                        'thumbnail_path': zip_thumb_path,
+                        'position': main_image.position
+                    })
 
-            # 写入主图
-            abs_img_path = os.path.join(upload_root, img_filename)
-            if os.path.exists(abs_img_path):
-                zf.write(abs_img_path, f"images/{img_filename}")
-
-            # 写入缩略图
-            if img.thumbnail_path:
-                abs_thumb = os.path.join(upload_root, os.path.basename(img.thumbnail_path))
-                if os.path.exists(abs_thumb):
-                    zf.write(abs_thumb, f"images/{os.path.basename(img.thumbnail_path)}")
+            if item_data['main_images']:
+                item_data['zip_image_path'] = item_data['main_images'][0]['file_path']
+                item_data['zip_thumb_path'] = item_data['main_images'][0].get('thumbnail_path')
 
             # 写入参考图
             item_data['refs'] = []

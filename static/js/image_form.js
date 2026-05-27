@@ -103,7 +103,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (zone.type === 'main') {
                         const mainInput = document.getElementById('mainImageInput');
                         const dt = new DataTransfer();
-                        dt.items.add(files[0]);
+                        Array.from(files).forEach(file => {
+                            if (file.type.startsWith('image/')) dt.items.add(file);
+                        });
                         mainInput.files = dt.files;
                         mainInput.dispatchEvent(new Event('change'));
                     } else if (zone.type === 'ref') {
@@ -172,19 +174,39 @@ document.addEventListener('DOMContentLoaded', function() {
     if(cardTxt2Img) cardTxt2Img.addEventListener('click', () => toggleType('txt2img'));
     if(cardImg2Img) cardImg2Img.addEventListener('click', () => toggleType('img2img'));
 
-    // Main Image Preview
+    // Main Images Preview
     const mainInput = document.getElementById('mainImageInput');
+    const mainPreviewList = document.getElementById('mainPreviewList');
     if (mainInput) {
         mainInput.addEventListener('change', function() {
-            if (this.files && this.files[0]) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    document.getElementById('mainPlaceholder').classList.add('d-none');
-                    const img = document.getElementById('mainPreview');
-                    img.src = e.target.result;
-                    img.classList.remove('d-none');
-                }
-                reader.readAsDataURL(this.files[0]);
+            const files = Array.from(this.files || []).filter(file => file.type.startsWith('image/'));
+            if (!files.length) return;
+
+            document.getElementById('mainPlaceholder').classList.add('d-none');
+            const img = document.getElementById('mainPreview');
+            const firstUrl = URL.createObjectURL(files[0]);
+            img.src = firstUrl;
+            img.onload = () => URL.revokeObjectURL(firstUrl);
+            img.classList.remove('d-none');
+
+            if (mainPreviewList) {
+                mainPreviewList.innerHTML = '';
+                files.forEach((file, index) => {
+                    const thumbUrl = URL.createObjectURL(file);
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn p-0 border border-white border-opacity-50 rounded overflow-hidden bg-dark position-relative';
+                    btn.style.width = '54px';
+                    btn.style.height = '54px';
+                    btn.title = `主作品 ${index + 1}`;
+                    btn.innerHTML = `<img src="${thumbUrl}" class="w-100 h-100 object-fit-cover"><span class="position-absolute top-0 start-0 badge bg-dark bg-opacity-75 rounded-0" style="font-size:0.55rem;">${index + 1}</span>`;
+                    btn.addEventListener('click', () => {
+                        const previewUrl = URL.createObjectURL(file);
+                        img.src = previewUrl;
+                        img.onload = () => URL.revokeObjectURL(previewUrl);
+                    });
+                    mainPreviewList.appendChild(btn);
+                });
             }
         });
     }

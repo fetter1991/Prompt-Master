@@ -128,8 +128,8 @@ def upload():
     if request.method == 'GET':
         return render_template('upload.html')
 
-    file = request.files.get('image')
-    if not file: return "缺少主图", 400
+    files = request.files.getlist('image')
+    if not any(f and f.filename for f in files): return "缺少主图", 400
 
     # 1. 获取用户选择的分类 (gallery 或 template)
     category = request.form.get('category', 'gallery')
@@ -150,7 +150,7 @@ def upload():
         form_data['status'] = initial_status
 
         new_image = ImageService.create_image(
-            file=file,
+            file=files,
             data=form_data,
             ref_files=request.files.getlist('ref_images')
         )
@@ -321,7 +321,7 @@ def api_upload():
 
     请求方式: POST multipart/form-data
     参数:
-        - image: 主图文件 (必填)
+        - image: 主图文件，可传多个同名字段 (必填)
         - title: 标题 (必填)
         - prompt: 提示词
         - author: 作者
@@ -331,9 +331,9 @@ def api_upload():
         - tags: 逗号分隔的标签
         - ref_images: 参考图文件列表 (img2img 时使用)
     """
-    # 验证主图
-    file = request.files.get('image')
-    if not file or not file.filename:
+    # 验证主图，支持多个同名 image 字段，也兼容 images 字段
+    files = request.files.getlist('image') or request.files.getlist('images')
+    if not any(f and f.filename for f in files):
         return jsonify({'code': 400, 'message': '缺少主图文件', 'data': None}), 400
 
     # 验证标题
@@ -357,7 +357,7 @@ def api_upload():
         form_data['category'] = category
 
         new_image = ImageService.create_image(
-            file=file,
+            file=files,
             data=form_data,
             ref_files=request.files.getlist('ref_images')
         )

@@ -8,6 +8,27 @@ window.currentVars = {};
 window.rawPrompt = "";
 window.currentImgId = null;
 
+function renderModalMainAsset(asset) {
+    const modalImg = document.getElementById('modalImg');
+    const modalVideo = document.getElementById('modalVideo');
+    const filePath = asset?.file_path || '';
+    const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(filePath);
+
+    if (isVideo) {
+        modalImg.classList.add('d-none');
+        modalImg.src = '';
+        modalVideo.src = filePath;
+        modalVideo.classList.remove('d-none');
+        modalVideo.load();
+    } else {
+        modalVideo.pause();
+        modalVideo.src = '';
+        modalVideo.classList.add('d-none');
+        modalImg.src = filePath;
+        modalImg.classList.remove('d-none');
+    }
+}
+
 // --- Detail Modal Logic ---
 
 window.showDetail = function(el) {
@@ -17,23 +38,10 @@ window.showDetail = function(el) {
         const data = JSON.parse(scriptTag.textContent);
 
         // 1. 基础信息渲染
-        const modalImg = document.getElementById('modalImg');
-        const modalVideo = document.getElementById('modalVideo');
-        const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(data.file_path || '');
-
-        if (isVideo) {
-            modalImg.classList.add('d-none');
-            modalImg.src = '';
-            modalVideo.src = data.file_path;
-            modalVideo.classList.remove('d-none');
-            modalVideo.load();
-        } else {
-            modalVideo.pause();
-            modalVideo.src = '';
-            modalVideo.classList.add('d-none');
-            modalImg.src = data.file_path;
-            modalImg.classList.remove('d-none');
-        }
+        const mainImages = data.main_images && data.main_images.length > 0
+            ? data.main_images
+            : [{ file_path: data.file_path, thumbnail_path: data.thumbnail_path, position: 0 }];
+        renderModalMainAsset(mainImages[0]);
         document.getElementById('modalTitle').innerText = data.title;
         document.getElementById('modalAuthor').innerText = data.author ? 'by ' + data.author : '';
 
@@ -133,21 +141,32 @@ function renderOtherDetails(data) {
         tagsContainer.innerHTML += `<span class="badge rounded-pill fw-normal border me-1" style="background:var(--btn-bg); color:var(--text-primary); border-color: rgba(128,128,128,0.2) !important;">${tag}</span>`;
     });
 
-    // Refs (参考图)
+    // Main Images & Refs (主作品图与参考图)
     const refsSection = document.getElementById('modalRefsSection');
     const refsContainer = document.getElementById('modalRefs');
     refsContainer.innerHTML = '';
 
-    if (data.refs && data.refs.length > 0) {
-        refsSection.classList.remove('d-none');
-        // 添加效果图作为第一个参考
-        refsContainer.innerHTML += `
-        <div class="d-flex flex-column align-items-center cursor-pointer me-2" onclick="document.getElementById('modalImg').src='${data.file_path}'">
-            <img src="${data.file_path}" class="rounded border mb-1" style="width:60px;height:60px;object-fit:cover;">
-            <span style="font-size:0.6rem;color:var(--text-secondary);">效果图</span>
-        </div>`;
+    const mainImages = data.main_images && data.main_images.length > 0
+        ? data.main_images
+        : [{ file_path: data.file_path, thumbnail_path: data.thumbnail_path, position: 0 }];
+    const refs = data.refs || [];
 
-        data.refs.forEach((ref, idx) => {
+    if (mainImages.length > 1 || refs.length > 0) {
+        refsSection.classList.remove('d-none');
+
+        mainImages.forEach((mainImage, idx) => {
+            const div = document.createElement('button');
+            div.type = 'button';
+            div.className = 'btn p-0 d-flex flex-column align-items-center cursor-pointer me-1 border-0 bg-transparent';
+            div.title = `切换主作品 ${idx + 1}`;
+            div.onclick = function() { renderModalMainAsset(mainImage); };
+            div.innerHTML = `
+                <img src="${mainImage.thumbnail_path || mainImage.file_path}" class="rounded border mb-1" style="width:60px;height:60px;object-fit:cover;">
+                <span style="font-size:0.6rem;color:var(--text-secondary);">效果图 ${idx + 1}</span>`;
+            refsContainer.appendChild(div);
+        });
+
+        refs.forEach((ref, idx) => {
             let innerHTML = '';
             if (ref.is_placeholder) {
                 innerHTML = `
@@ -165,7 +184,7 @@ function renderOtherDetails(data) {
             div.className = 'd-flex flex-column align-items-center cursor-pointer me-1';
             // 只有非占位符图片才支持点击切换大图
             if (!ref.is_placeholder) {
-                div.onclick = function() { document.getElementById('modalImg').src = ref.file_path; };
+                div.onclick = function() { renderModalMainAsset({ file_path: ref.file_path }); };
             }
             div.innerHTML = innerHTML;
             refsContainer.appendChild(div);
