@@ -160,6 +160,11 @@ def upload():
         return f"发布失败: {str(e)}", 500
 
 
+@bp.route('/common')
+def common():
+    return render_template('common.html')
+
+
 @bp.route('/about')
 def about():
     return render_template('about.html')

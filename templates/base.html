@@ -55,6 +55,10 @@
                     <i class="bi bi-plus-lg me-2"></i>上传
                 </a>
 
+                <a href="{{ url_for('public.common') }}" class="nav-pill-link {{ 'active' if request.endpoint == 'public.common' else '' }}">
+                    <i class="bi bi-journal-medical me-2"></i>常用
+                </a>
+
                 <a href="{{ url_for('public.about') }}" class="nav-pill-link {{ 'active' if request.endpoint == 'public.about' else '' }}">
                     <i class="bi bi-info-circle me-2"></i>关于
                 </a>

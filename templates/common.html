@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}常用 - Prompt Manager{% endblock %}
+
+{% block content %}
+<div class="page-container" style="max-width: 800px;">
+
+    <div class="text-center mb-5 animate-up">
+        <div class="mb-3 d-inline-flex align-items-center justify-content-center shadow-sm"
+             style="width: 80px; height: 80px; background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); border-radius: 22px;">
+            <i class="bi bi-images text-primary" style="font-size: 2.5rem; opacity: 0.8;"></i>
+        </div>
+        <h2 class="fw-bold mb-2" style="letter-spacing: -0.5px;">Prompt Manager</h2>
+    </div>
+
+    <div class="glass-panel p-4 mb-5 animate-up" style="animation-delay: 0.3s;">
+        <div class="mb-5 pb-2 border-bottom border-secondary border-opacity-10">
+            <div class="d-flex align-items-center mb-3">
+                <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                    <i class="bi bi-link-45deg fs-5"></i>
+                </div>
+                <h5 class="fw-bold mb-0">灵感广场</h5>
+            </div>
+
+            <div class="input-glass p-4 rounded-3 mb-4 border border-secondary border-opacity-10">
+                <h6 class="fw-bold text-secondary small text-uppercase mb-3">⚡️ 作品集：一些其他人的作品</h6>
+                <p class="small mb-4" style="color: var(--text-secondary);">
+                    来自不同平台或个人的作品展示，部分图片的生成需要配合特定lora或工作流。
+                </p>
+
+                <div class="d-flex flex-column gap-3">
+                    <div class="d-flex gap-3">
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 0.8rem; flex-shrink: 0;">1</div>
+                        <div class="small text-secondary">
+                            <strong style="color: var(--text-primary);">Bizyair：</strong> 严老师【AI教育实验室】：<br>
+                            <code class="text-primary mt-1 d-inline-block">link: "<a href="https://bizyair.cn/userspace/cm1e5qhny00yiyfv6osmivkla" target="_blank"> https://bizyair.cn/userspace/cm1e5qhny00yiyfv6osmivkla</a>"</code>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 0.8rem; flex-shrink: 0;">2</div>
+                        <div class="small text-secondary">
+                            <strong style="color: var(--text-primary);">RunningHub：</strong> 作品广场（后续可粘贴个人作品集）：<br>
+                            <code class="text-primary mt-1 d-inline-block">link: "<a href="https://www.runninghub.cn/explore" target="_blank"> https://www.runninghub.cn/explore</a>"</code>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <div class="rounded-circle bg-success bg-opacity-10 text-success d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 0.8rem; flex-shrink: 0;">3</div>
+                        <div class="small text-secondary">
+                            <strong style="color: var(--text-primary);">ModelScope：</strong> 魔搭社区作品广场：<br>
+                            <code class="text-primary mt-1 d-inline-block">link: "<a href="https://www.modelscope.cn/aigc/inspiration?modelVisibility=all&page=1" target="_blank"> https://www.modelscope.cn/aigc/inspiration?modelVisibility=all&page=1</a>"</code>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <div class="rounded-circle bg-success bg-opacity-10 text-success d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 0.8rem; flex-shrink: 0;">3</div>
+                        <div class="small text-secondary">
+                            <strong style="color: var(--text-primary);">KOOK：</strong> KOOK灵绘库（美学相当牛逼）：<br>
+                            <code class="text-primary mt-1 d-inline-block">link: "https://kookaigc.top/?view=gallery"</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hover-scale:hover { transform: scale(1.05); }
+    .transition-transform { transition: transform 0.2s ease; }
+    .line-height-sm { line-height: 1.5; }
+    .input-glass .table>:not(caption)>*>* {
+        border-bottom-color: rgba(128,128,128,0.1);
+    }
+</style>
+
+<script>
+(function () {
+    const COOKIE_NAME = 'pm_show_sensitive';
+    const toggle = document.getElementById('sensitiveToggle');
+    if (toggle) {
+        const isEnabled = document.cookie.split('; ').find(row => row.startsWith(COOKIE_NAME + '='))?.split('=')[1] === '1';
+        toggle.checked = isEnabled;
+        toggle.addEventListener('change', function() {
+            const d = new Date();
+            d.setTime(d.getTime() + (30 * 24 * 60 * 60 * 1000));
+            document.cookie = `${COOKIE_NAME}=${toggle.checked ? '1' : '0'};expires=${d.toUTCString()};path=/`;
+            setTimeout(() => window.location.reload(), 300);
+        });
+    }
+})();
+
+function copyCode(btn) {
+    const pre = btn.nextElementSibling;
+    navigator.clipboard.writeText(pre.textContent).then(() => {
+        const original = btn.innerText;
+        btn.innerText = "Copied!";
+        setTimeout(() => btn.innerText = original, 2000);
+    });
+}
+</script>
+{% endblock %}
