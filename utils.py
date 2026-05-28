@@ -10,7 +10,9 @@ try:
 except ImportError:
     boto3 = None
 
-ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
+VIDEO_EXTENSIONS = {'.mp4', '.webm', '.ogg', '.mov', '.m4v'}
+ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 THUMB_SIZE = (400, 400)
 
 
@@ -67,6 +69,7 @@ def process_image(file_storage, upload_folder):
     ext = os.path.splitext(filename)[1].lower() if filename else ''
     if ext not in ALLOWED_EXTENSIONS:
         ext = '.jpg'
+    is_video = ext in VIDEO_EXTENSIONS
 
     unique_name = uuid.uuid4().hex
     filename = f"{unique_name}{ext}"
@@ -85,6 +88,10 @@ def process_image(file_storage, upload_folder):
                 elif ext == '.png': content_type = 'image/png'
                 elif ext == '.gif': content_type = 'image/gif'
                 elif ext == '.webp': content_type = 'image/webp'
+                elif ext == '.mp4': content_type = 'video/mp4'
+                elif ext == '.webm': content_type = 'video/webm'
+                elif ext == '.ogg': content_type = 'video/ogg'
+                elif ext in ['.mov', '.m4v']: content_type = 'video/quicktime'
                 else: content_type = 'application/octet-stream'
 
             # 流式上传原图
@@ -123,6 +130,11 @@ def process_image(file_storage, upload_folder):
             os.makedirs(full_upload_dir)
 
         file_abspath = os.path.join(full_upload_dir, filename)
+        web_original = f"/{upload_folder}/{filename}".replace('//', '/')
+
+        if is_video:
+            file_storage.save(file_abspath)
+            return web_original, None
 
         # 配置读取 (使用热更新配置)
         max_dim = get_config_value('IMG_MAX_DIMENSION', 1600)

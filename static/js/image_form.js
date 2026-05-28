@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const mainInput = document.getElementById('mainImageInput');
                         const dt = new DataTransfer();
                         Array.from(files).forEach(file => {
-                            if (file.type.startsWith('image/')) dt.items.add(file);
+                            if (file.type.startsWith('image/') || file.type.startsWith('video/')) dt.items.add(file);
                         });
                         mainInput.files = dt.files;
                         mainInput.dispatchEvent(new Event('change'));
@@ -174,36 +174,55 @@ document.addEventListener('DOMContentLoaded', function() {
     if(cardTxt2Img) cardTxt2Img.addEventListener('click', () => toggleType('txt2img'));
     if(cardImg2Img) cardImg2Img.addEventListener('click', () => toggleType('img2img'));
 
-    // Main Images Preview
+    // Main Images / Videos Preview
     const mainInput = document.getElementById('mainImageInput');
     const mainPreviewList = document.getElementById('mainPreviewList');
+    const mainPreview = document.getElementById('mainPreview');
+    const mainVideoPreview = document.getElementById('mainVideoPreview');
+
+    window.previewMainMedia = function(src, fileType) {
+        const isVideo = (fileType && fileType.startsWith('video/')) || /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(src || '');
+        if (isVideo) {
+            mainPreview.src = '';
+            mainPreview.classList.add('d-none');
+            mainVideoPreview.src = src;
+            mainVideoPreview.classList.remove('d-none');
+            mainVideoPreview.load();
+        } else {
+            mainVideoPreview.pause();
+            mainVideoPreview.src = '';
+            mainVideoPreview.classList.add('d-none');
+            mainPreview.src = src;
+            mainPreview.classList.remove('d-none');
+        }
+    };
+
     if (mainInput) {
         mainInput.addEventListener('change', function() {
-            const files = Array.from(this.files || []).filter(file => file.type.startsWith('image/'));
+            const files = Array.from(this.files || []).filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
             if (!files.length) return;
 
             document.getElementById('mainPlaceholder').classList.add('d-none');
-            const img = document.getElementById('mainPreview');
             const firstUrl = URL.createObjectURL(files[0]);
-            img.src = firstUrl;
-            img.onload = () => URL.revokeObjectURL(firstUrl);
-            img.classList.remove('d-none');
+            window.previewMainMedia(firstUrl, files[0].type);
 
             if (mainPreviewList) {
                 mainPreviewList.innerHTML = '';
                 files.forEach((file, index) => {
                     const thumbUrl = URL.createObjectURL(file);
+                    const isVideo = file.type.startsWith('video/');
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'btn p-0 border border-white border-opacity-50 rounded overflow-hidden bg-dark position-relative';
                     btn.style.width = '54px';
                     btn.style.height = '54px';
                     btn.title = `主作品 ${index + 1}`;
-                    btn.innerHTML = `<img src="${thumbUrl}" class="w-100 h-100 object-fit-cover"><span class="position-absolute top-0 start-0 badge bg-dark bg-opacity-75 rounded-0" style="font-size:0.55rem;">${index + 1}</span>`;
+                    btn.innerHTML = isVideo
+                        ? `<video src="${thumbUrl}" class="w-100 h-100 object-fit-cover" muted playsinline></video><i class="bi bi-play-fill position-absolute top-50 start-50 translate-middle text-white fs-4"></i><span class="position-absolute top-0 start-0 badge bg-dark bg-opacity-75 rounded-0" style="font-size:0.55rem;">${index + 1}</span>`
+                        : `<img src="${thumbUrl}" class="w-100 h-100 object-fit-cover"><span class="position-absolute top-0 start-0 badge bg-dark bg-opacity-75 rounded-0" style="font-size:0.55rem;">${index + 1}</span>`;
                     btn.addEventListener('click', () => {
                         const previewUrl = URL.createObjectURL(file);
-                        img.src = previewUrl;
-                        img.onload = () => URL.revokeObjectURL(previewUrl);
+                        window.previewMainMedia(previewUrl, file.type);
                     });
                     mainPreviewList.appendChild(btn);
                 });
