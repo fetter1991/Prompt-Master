@@ -7,23 +7,68 @@
 window.currentVars = {};
 window.rawPrompt = "";
 window.currentImgId = null;
+window.currentModalMediaMeta = null;
+
+function getMediaRatioLabel(width, height) {
+    if (!width || !height) return '';
+    const gcd = (a, b) => b ? gcd(b, a % b) : a;
+    const divisor = gcd(width, height);
+    return `${Math.round(width / divisor)}：${Math.round(height / divisor)}`;
+}
+
+function updateModalMediaMeta(width, height, mediaEl) {
+    const meta = document.getElementById('modalMediaMeta');
+    const mediaWrap = mediaEl?.parentElement;
+    if (!meta || !mediaEl || !mediaWrap || !width || !height) return false;
+
+    const mediaRect = mediaEl.getBoundingClientRect();
+    const wrapRect = mediaWrap.getBoundingClientRect();
+    if (mediaRect.width <= 0 || mediaRect.height <= 0 || wrapRect.width <= 0 || wrapRect.height <= 0) {
+        return false;
+    }
+
+    meta.innerHTML = `<span>分辨率：${width} * ${height}</span><span>比例：${getMediaRatioLabel(width, height)}</span>`;
+    meta.style.left = `${mediaRect.left - wrapRect.left}px`;
+    meta.style.width = `${mediaRect.width}px`;
+    meta.classList.remove('d-none');
+    meta.style.top = `${mediaRect.bottom - wrapRect.top - meta.offsetHeight}px`;
+    return true;
+}
+
+function scheduleModalMediaMetaUpdate(width, height, mediaEl) {
+    window.currentModalMediaMeta = { width, height, mediaEl };
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => updateModalMediaMeta(width, height, mediaEl));
+    });
+    setTimeout(() => updateModalMediaMeta(width, height, mediaEl), 250);
+}
 
 function renderModalMainAsset(asset) {
     const modalImg = document.getElementById('modalImg');
     const modalVideo = document.getElementById('modalVideo');
+    const meta = document.getElementById('modalMediaMeta');
     const filePath = asset?.file_path || '';
     const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(filePath);
+
+    if (meta) meta.classList.add('d-none');
 
     if (isVideo) {
         modalImg.classList.add('d-none');
         modalImg.src = '';
+        modalVideo.onloadedmetadata = function() {
+            scheduleModalMediaMetaUpdate(modalVideo.videoWidth, modalVideo.videoHeight, modalVideo);
+        };
         modalVideo.src = filePath;
         modalVideo.classList.remove('d-none');
         modalVideo.load();
     } else {
         modalVideo.pause();
         modalVideo.src = '';
+        modalVideo.onloadedmetadata = null;
         modalVideo.classList.add('d-none');
+        modalImg.onload = function() {
+            scheduleModalMediaMetaUpdate(modalImg.naturalWidth, modalImg.naturalHeight, modalImg);
+        };
         modalImg.src = filePath;
         modalImg.classList.remove('d-none');
     }
@@ -111,9 +156,16 @@ window.showDetail = function(el) {
         // 4. 渲染其他详情 (描述、标签、参考图、管理按钮)
         renderOtherDetails(data);
 
-        // 5. 显示模态框
+        // 5. 显示模态框；弹窗动画结束后重新计算媒体信息遮罩位置
         if (typeof bootstrap !== 'undefined') {
-            new bootstrap.Modal(document.getElementById('detailModal')).show();
+            const modalEl = document.getElementById('detailModal');
+            modalEl.addEventListener('shown.bs.modal', function() {
+                const metaState = window.currentModalMediaMeta;
+                if (metaState) {
+                    scheduleModalMediaMetaUpdate(metaState.width, metaState.height, metaState.mediaEl);
+                }
+            }, { once: true });
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
         }
     } catch(e) {
         console.error("Detail Error:", e);
@@ -154,41 +206,59 @@ function renderOtherDetails(data) {
     if (mainImages.length > 1 || refs.length > 0) {
         refsSection.classList.remove('d-none');
 
+        refsContainer.className = 'd-flex flex-column gap-3 overflow-auto pb-2 custom-scrollbar';
+
+        const mainGroup = document.createElement('div');
+        mainGroup.innerHTML = `
+            <div class="x-small fw-bold text-secondary text-uppercase mb-2">效果图</div>
+            <div class="d-flex gap-2 overflow-auto pb-1" data-main-images></div>`;
+        const mainRow = mainGroup.querySelector('[data-main-images]');
+
         mainImages.forEach((mainImage, idx) => {
             const div = document.createElement('button');
             div.type = 'button';
-            div.className = 'btn p-0 d-flex flex-column align-items-center cursor-pointer me-1 border-0 bg-transparent';
+            div.className = 'btn p-0 d-flex flex-column align-items-center cursor-pointer border-0 bg-transparent flex-shrink-0';
             div.title = `切换主作品 ${idx + 1}`;
             div.onclick = function() { renderModalMainAsset(mainImage); };
             div.innerHTML = `
                 <img src="${mainImage.thumbnail_path || mainImage.file_path}" class="rounded border mb-1" style="width:60px;height:60px;object-fit:cover;">
                 <span style="font-size:0.6rem;color:var(--text-secondary);">效果图 ${idx + 1}</span>`;
-            refsContainer.appendChild(div);
+            mainRow.appendChild(div);
         });
+        refsContainer.appendChild(mainGroup);
 
-        refs.forEach((ref, idx) => {
-            let innerHTML = '';
-            if (ref.is_placeholder) {
-                innerHTML = `
-                <div class="rounded border mb-1 d-flex flex-column align-items-center justify-content-center bg-light text-secondary" style="width:60px;height:60px; border-style: dashed !important;">
-                    <i class="bi bi-person-bounding-box" style="font-size: 1.2rem;"></i>
-                </div>
-                <span style="font-size:0.6rem;color:var(--text-secondary);">变量 ${idx+1}</span>`;
-            } else {
-                innerHTML = `
-                <img src="${ref.file_path}" class="rounded border mb-1" style="width:60px;height:60px;object-fit:cover;">
-                <span style="font-size:0.6rem;color:var(--text-secondary);">Ref ${idx+1}</span>`;
-            }
+        if (refs.length > 0) {
+            const refGroup = document.createElement('div');
+            refGroup.innerHTML = `
+                <div class="x-small fw-bold text-secondary text-uppercase mb-2">参考图</div>
+                <div class="d-flex gap-2 overflow-auto pb-1" data-ref-images></div>`;
+            const refRow = refGroup.querySelector('[data-ref-images]');
 
-            const div = document.createElement('div');
-            div.className = 'd-flex flex-column align-items-center cursor-pointer me-1';
-            // 只有非占位符图片才支持点击切换大图
-            if (!ref.is_placeholder) {
-                div.onclick = function() { renderModalMainAsset({ file_path: ref.file_path }); };
-            }
-            div.innerHTML = innerHTML;
-            refsContainer.appendChild(div);
-        });
+            refs.forEach((ref, idx) => {
+                let innerHTML = '';
+                if (ref.is_placeholder) {
+                    innerHTML = `
+                    <div class="rounded border mb-1 d-flex flex-column align-items-center justify-content-center bg-light text-secondary" style="width:60px;height:60px; border-style: dashed !important;">
+                        <i class="bi bi-person-bounding-box" style="font-size: 1.2rem;"></i>
+                    </div>
+                    <span style="font-size:0.6rem;color:var(--text-secondary);">变量 ${idx+1}</span>`;
+                } else {
+                    innerHTML = `
+                    <img src="${ref.file_path}" class="rounded border mb-1" style="width:60px;height:60px;object-fit:cover;">
+                    <span style="font-size:0.6rem;color:var(--text-secondary);">Ref ${idx+1}</span>`;
+                }
+
+                const div = document.createElement('div');
+                div.className = 'd-flex flex-column align-items-center cursor-pointer flex-shrink-0';
+                // 只有非占位符图片才支持点击切换大图
+                if (!ref.is_placeholder) {
+                    div.onclick = function() { renderModalMainAsset({ file_path: ref.file_path }); };
+                }
+                div.innerHTML = innerHTML;
+                refRow.appendChild(div);
+            });
+            refsContainer.appendChild(refGroup);
+        }
     } else {
         refsSection.classList.add('d-none');
     }

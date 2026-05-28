@@ -229,6 +229,10 @@
                         <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-4 p-2 bg-dark bg-opacity-50 rounded-circle" data-bs-dismiss="modal" style="z-index: 10;"></button>
                         <img id="modalImg" src="" class="img-fluid" style="max-height: 95%; max-width: 95%; object-fit: contain;">
                         <video id="modalVideo" class="d-none" controls playsinline style="max-height: 95%; max-width: 95%; object-fit: contain;"></video>
+                        <div id="modalMediaMeta"
+                             class="position-absolute px-3 py-2 text-white small fw-semibold d-none"
+                             style="z-index: 9; backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); border: 1px solid rgba(255,255,255,0.18);  pointer-events: none; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                        </div>
                     </div>
 
                     <div class="col-lg-4 d-flex flex-column border-start border-secondary border-opacity-10 h-100" style="background-color: var(--modal-bg); overflow: hidden;">
