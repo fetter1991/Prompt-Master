@@ -65,7 +65,7 @@
                             onclick="window.previewMainMedia && window.previewMainMedia('{{ main_image.file_path }}')"
                             title="主作品 {{ loop.index }}">
                         {% if item_is_video %}
-                        <video src="{{ main_image.file_path }}" class="w-100 h-100 object-fit-cover" muted playsinline></video>
+                        <video src="{{ main_image.file_path }}" class="w-100 h-100 object-fit-cover" muted playsinline preload="metadata"></video>
                         <i class="bi bi-play-fill position-absolute top-50 start-50 translate-middle text-white fs-4"></i>
                         {% else %}
                         <img src="{{ main_image.thumbnail_path or main_image.file_path }}" class="w-100 h-100 object-fit-cover">

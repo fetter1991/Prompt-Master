@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     btn.style.height = '54px';
                     btn.title = `主作品 ${index + 1}`;
                     btn.innerHTML = isVideo
-                        ? `<video src="${thumbUrl}" class="w-100 h-100 object-fit-cover" muted playsinline></video><i class="bi bi-play-fill position-absolute top-50 start-50 translate-middle text-white fs-4"></i><span class="position-absolute top-0 start-0 badge bg-dark bg-opacity-75 rounded-0" style="font-size:0.55rem;">${index + 1}</span>`
+                        ? `<video src="${thumbUrl}" class="w-100 h-100 object-fit-cover" muted playsinline preload="metadata"></video><i class="bi bi-play-fill position-absolute top-50 start-50 translate-middle text-white fs-4"></i><span class="position-absolute top-0 start-0 badge bg-dark bg-opacity-75 rounded-0" style="font-size:0.55rem;">${index + 1}</span>`
                         : `<img src="${thumbUrl}" class="w-100 h-100 object-fit-cover"><span class="position-absolute top-0 start-0 badge bg-dark bg-opacity-75 rounded-0" style="font-size:0.55rem;">${index + 1}</span>`;
                     btn.addEventListener('click', () => {
                         const previewUrl = URL.createObjectURL(file);

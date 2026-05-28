@@ -9,6 +9,10 @@ window.rawPrompt = "";
 window.currentImgId = null;
 window.currentModalMediaMeta = null;
 
+function isVideoPath(path) {
+    return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(path || '');
+}
+
 function getMediaRatioLabel(width, height) {
     if (!width || !height) return '';
     const gcd = (a, b) => b ? gcd(b, a % b) : a;
@@ -48,7 +52,7 @@ function renderModalMainAsset(asset) {
     const modalVideo = document.getElementById('modalVideo');
     const meta = document.getElementById('modalMediaMeta');
     const filePath = asset?.file_path || '';
-    const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(filePath);
+    const isVideo = isVideoPath(filePath);
 
     if (meta) meta.classList.add('d-none');
 
@@ -216,12 +220,16 @@ function renderOtherDetails(data) {
 
         mainImages.forEach((mainImage, idx) => {
             const div = document.createElement('button');
+            const isVideo = isVideoPath(mainImage.file_path);
+            const thumbHtml = isVideo
+                ? `<div class="position-relative rounded border mb-1 overflow-hidden" style="width:60px;height:60px;"><video src="${mainImage.file_path}" class="w-100 h-100" style="object-fit:cover;" muted playsinline preload="metadata"></video><i class="bi bi-play-fill position-absolute top-50 start-50 translate-middle text-white fs-5" style="text-shadow:0 1px 6px rgba(0,0,0,.7);"></i></div>`
+                : `<img src="${mainImage.thumbnail_path || mainImage.file_path}" class="rounded border mb-1" style="width:60px;height:60px;object-fit:cover;">`;
             div.type = 'button';
             div.className = 'btn p-0 d-flex flex-column align-items-center cursor-pointer border-0 bg-transparent flex-shrink-0';
             div.title = `切换主作品 ${idx + 1}`;
             div.onclick = function() { renderModalMainAsset(mainImage); };
             div.innerHTML = `
-                <img src="${mainImage.thumbnail_path || mainImage.file_path}" class="rounded border mb-1" style="width:60px;height:60px;object-fit:cover;">
+                ${thumbHtml}
                 <span style="font-size:0.6rem;color:var(--text-secondary);">效果图 ${idx + 1}</span>`;
             mainRow.appendChild(div);
         });
